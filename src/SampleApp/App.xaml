@@ -1,0 +1,9 @@
+﻿<only:InstanceAwareApp x:Class="SampleApp.App"
+                       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                       xmlns:only="clr-namespace:Only;assembly=Only"
+                       xmlns:local="clr-namespace:SampleApp"
+                       StartupUri="MainWindow.xaml">
+    <Application.Resources>
+    </Application.Resources>
+</only:InstanceAwareApp>

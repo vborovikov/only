@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package>
+  <metadata>
+    <id>Only</id>
+    <version>1.0.0.0</version>
+    <title>Only</title>
+    <authors>Vladislav Borovikov</authors>
+    <owners>Vladislav Borovikov</owners>
+    <licenseUrl>https://github.com/vborovikov/only/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/vborovikov/only</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Enables a .NET app to run as a single instance</description>
+    <releaseNotes></releaseNotes>
+    <copyright>Copyright © 2016 Vladislav Borovikov</copyright>
+    <tags>single single-instance</tags>
+    <dependencies>
+    </dependencies>
+  </metadata>
+</package>
