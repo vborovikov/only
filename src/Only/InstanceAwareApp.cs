@@ -1,129 +1,141 @@
-﻿namespace Only
+﻿namespace Only;
+
+using System;
+using System.Threading;
+using System.Web;
+using System.Windows;
+
+public class InstanceAwareApp : Application, IDisposable
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Deployment.Application;
-    using System.Linq;
-    using System.Threading;
-    using System.Windows;
+    private bool isDisposed = false; // To detect redundant calls
 
-    public class InstanceAwareApp : Application, IDisposable
+    private Mutex? singleInstanceMutex;
+    private SingleInstanceRemoteService? singleInstanceRemoteService;
+
+    ~InstanceAwareApp()
     {
-        private bool isDisposed = false; // To detect redundant calls
+        // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+        Dispose(disposing: false);
+    }
 
-        private Mutex singleInstanceMutex;
-        private SingleInstanceRemoteService singleInstanceRemoteService;
+    public int RunSingle(Window window = null)
+    {
+        var applicationIdentifier = this.GetType().Assembly.GetName().Name + Environment.UserName;
 
-        ~InstanceAwareApp()
+        // Create mutex based on unique application Id to check if this is the first instance of the application.
+        bool firstInstance;
+        this.singleInstanceMutex = new Mutex(true, applicationIdentifier, out firstInstance);
+        if (firstInstance)
         {
-            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-            Dispose(disposing: false);
+            this.singleInstanceRemoteService = new SingleInstanceRemoteService(applicationIdentifier);
+            return Run(window);
         }
-
-        public int RunSingle(Window window = null)
+        else
         {
-            var applicationIdentifier = this.GetType().Assembly.GetName().Name + Environment.UserName;
+            var commandLineArgs = GetCommandLineArgs();
+            SingleInstanceRemoteService.SignalFirstInstance(applicationIdentifier, commandLineArgs);
+            return 0;
+        }
+    }
 
-            // Create mutex based on unique application Id to check if this is the first instance of the application.
-            bool firstInstance;
-            this.singleInstanceMutex = new Mutex(true, applicationIdentifier, out firstInstance);
-            if (firstInstance)
+    // This code added to correctly implement the disposable pattern.
+    public void Dispose()
+    {
+        // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    internal void NotifyInstantiated(string[] args)
+    {
+        OnInstantiated(args);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!this.isDisposed)
+        {
+            if (this.singleInstanceMutex != null)
             {
-                this.singleInstanceRemoteService = new SingleInstanceRemoteService(applicationIdentifier);
-                return Run(window);
+                this.singleInstanceMutex.Dispose();
+                this.singleInstanceMutex = null;
             }
-            else
+            if (this.singleInstanceRemoteService != null)
             {
-                var commandLineArgs = GetCommandLineArgs();
-                SingleInstanceRemoteService.SignalFirstInstance(applicationIdentifier, commandLineArgs);
-                return 0;
+                this.singleInstanceRemoteService.Dispose();
+                this.singleInstanceRemoteService = null;
             }
+
+            this.isDisposed = true;
+        }
+    }
+
+    protected virtual void OnInstantiated(string[] args)
+    {
+        if (this.MainWindow.IsVisible == false)
+        {
+            this.MainWindow.Show();
         }
 
-        // This code added to correctly implement the disposable pattern.
-        public void Dispose()
+        if (this.MainWindow.WindowState == WindowState.Minimized)
         {
-            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
+            this.MainWindow.WindowState = WindowState.Normal;
         }
 
-        internal void NotifyInstantiated(string[] args)
+        this.MainWindow.Activate();
+        if (this.MainWindow.Topmost == false)
         {
-            OnInstantiated(args);
+            this.MainWindow.Topmost = true;
+            this.MainWindow.Topmost = false;
         }
+        this.MainWindow.Focus();
+    }
 
-        protected virtual void Dispose(bool disposing)
+    /// <summary>
+    /// Gets command line arguments - for ClickOnce deployed applications,
+    /// command line arguments may not be passed directly, they have to be retrieved.
+    /// </summary>
+    /// <returns>List of command line argument strings.</returns>
+    private static string[] GetCommandLineArgs()
+    {
+        string[] args = [];
+
+        if (Environment.GetEnvironmentVariable("ClickOnce_IsNetworkDeployed") is string isNetworkDeployedVar &&
+            bool.TryParse(isNetworkDeployedVar, out var isNetworkDeployed) && isNetworkDeployed)
         {
-            if (!this.isDisposed)
+            // The application was ClickOnce deployed
+            // ClickOnce deployed apps cannot receive traditional command line arguments
+
+            if (Environment.GetEnvironmentVariable("ClickOnce_ActivationUri") is string activationUriVar &&
+                Uri.TryCreate(activationUriVar, UriKind.Absolute, out var activationUri) &&
+                !string.IsNullOrWhiteSpace(activationUri.Query))
             {
-                if (this.singleInstanceMutex != null)
+                var queryParams = HttpUtility.ParseQueryString(activationUri.Query);
+                var argList = new List<string>();
+                foreach (var key in queryParams.AllKeys)
                 {
-                    this.singleInstanceMutex.Dispose();
-                    this.singleInstanceMutex = null;
-                }
-                if (this.singleInstanceRemoteService != null)
-                {
-                    this.singleInstanceRemoteService.Dispose();
-                    this.singleInstanceRemoteService = null;
+                    if (key is null)
+                        continue;
+
+                    argList.Add(key);
+
+                    var values = queryParams.GetValues(key);
+                    if (values is null)
+                        continue;
+
+                    argList.AddRange(values);
                 }
 
-                this.isDisposed = true;
+                args = [.. argList];
             }
         }
-
-        protected virtual void OnInstantiated(string[] args)
+        else
         {
-            if (this.MainWindow.IsVisible == false)
-            {
-                this.MainWindow.Show();
-            }
-
-            if (this.MainWindow.WindowState == WindowState.Minimized)
-            {
-                this.MainWindow.WindowState = WindowState.Normal;
-            }
-
-            this.MainWindow.Activate();
-            if (this.MainWindow.Topmost == false)
-            {
-                this.MainWindow.Topmost = true;
-                this.MainWindow.Topmost = false;
-            }
-            this.MainWindow.Focus();
+            // The application was not ClickOnce deployed, get arguments from standard APIs
+            // Skip the executable file name
+            args = Environment.GetCommandLineArgs()[..1];
         }
 
-        /// <summary>
-        /// Gets command line arguments - for ClickOnce deployed applications,
-        /// command line arguments may not be passed directly, they have to be retrieved.
-        /// </summary>
-        /// <returns>List of command line argument strings.</returns>
-        private static string[] GetCommandLineArgs()
-        {
-            IEnumerable<string> args = null;
-            if (AppDomain.CurrentDomain.ActivationContext == null)
-            {
-                // The application was not ClickOnce deployed, get arguments from standard APIs
-                // Skip the executable file name
-                args = Environment.GetCommandLineArgs().Skip(1);
-            }
-            else if (ApplicationDeployment.IsNetworkDeployed)
-            {
-                // The application was ClickOnce deployed
-                // ClickOnce deployed apps cannot receive traditional command line arguments
-
-                if (AppDomain.CurrentDomain.SetupInformation.ActivationArguments != null)
-                {
-                    args = AppDomain.CurrentDomain.SetupInformation.ActivationArguments.ActivationData;
-                }
-            }
-
-            if (args == null)
-            {
-                args = Enumerable.Empty<string>();
-            }
-
-            return args.ToArray();
-        }
+        return args;
     }
 }
