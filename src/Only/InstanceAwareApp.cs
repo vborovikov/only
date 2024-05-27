@@ -5,6 +5,9 @@ using System.Threading;
 using System.Web;
 using System.Windows;
 
+/// <summary>
+/// Encapsulates an application which can be run as a single instance.
+/// </summary>
 public class InstanceAwareApp : Application, IDisposable
 {
     private bool isDisposed = false; // To detect redundant calls
@@ -12,19 +15,25 @@ public class InstanceAwareApp : Application, IDisposable
     private Mutex? singleInstanceMutex;
     private SingleInstanceRemoteService? singleInstanceRemoteService;
 
+    /// <summary>
+    /// Disposes managed and unmanaged resources.
+    /// </summary>
     ~InstanceAwareApp()
     {
-        // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
         Dispose(disposing: false);
     }
 
-    public int RunSingle(Window window = null)
+    /// <summary>
+    /// Runs the application as a single instance.
+    /// </summary>
+    /// <param name="window"></param>
+    /// <returns></returns>
+    public int RunSingle(Window? window = null)
     {
         var applicationIdentifier = this.GetType().Assembly.GetName().Name + Environment.UserName;
 
         // Create mutex based on unique application Id to check if this is the first instance of the application.
-        bool firstInstance;
-        this.singleInstanceMutex = new Mutex(true, applicationIdentifier, out firstInstance);
+        this.singleInstanceMutex = new Mutex(true, applicationIdentifier, out var firstInstance);
         if (firstInstance)
         {
             this.singleInstanceRemoteService = new SingleInstanceRemoteService(applicationIdentifier);
@@ -38,10 +47,9 @@ public class InstanceAwareApp : Application, IDisposable
         }
     }
 
-    // This code added to correctly implement the disposable pattern.
+    /// <inheritdoc/>
     public void Dispose()
     {
-        // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
@@ -51,6 +59,9 @@ public class InstanceAwareApp : Application, IDisposable
         OnInstantiated(args);
     }
 
+    /// <summary>
+    /// Disposes managed and unmanaged resources.
+    /// </summary>
     protected virtual void Dispose(bool disposing)
     {
         if (!this.isDisposed)
@@ -70,6 +81,10 @@ public class InstanceAwareApp : Application, IDisposable
         }
     }
 
+    /// <summary>
+    /// Handles the activation of the first instance of the application.
+    /// </summary>
+    /// <param name="args"></param>
     protected virtual void OnInstantiated(string[] args)
     {
         if (this.MainWindow.IsVisible == false)
@@ -92,10 +107,12 @@ public class InstanceAwareApp : Application, IDisposable
     }
 
     /// <summary>
-    /// Gets command line arguments - for ClickOnce deployed applications,
-    /// command line arguments may not be passed directly, they have to be retrieved.
+    /// Gets command line arguments.
     /// </summary>
-    /// <returns>List of command line argument strings.</returns>
+    /// <returns>List of command line argument values.</returns>
+    /// <remarks>
+    /// For ClickOnce deployed applications, command line arguments may not be passed directly, they have to be retrieved.
+    /// </remarks>
     private static string[] GetCommandLineArgs()
     {
         string[] args = [];
