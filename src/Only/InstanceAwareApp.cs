@@ -30,7 +30,7 @@ public class InstanceAwareApp : Application, IDisposable
     /// <returns></returns>
     public int RunSingle(Window? window = null)
     {
-        var applicationIdentifier = this.GetType().Assembly.GetName().Name + Environment.UserName;
+        var applicationIdentifier = $"{this.GetType().Assembly.GetName().Name}:{Environment.UserName}";
 
         // Create mutex based on unique application Id to check if this is the first instance of the application.
         this.singleInstanceMutex = new Mutex(true, applicationIdentifier, out var firstInstance);
