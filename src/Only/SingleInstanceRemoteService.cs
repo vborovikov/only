@@ -8,14 +8,12 @@ using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Ipc;
 using System.Runtime.Serialization.Formatters;
-using System.Windows;
-using System.Windows.Threading;
 
 /// <summary>
 /// Remoting service class which is exposed by the server i.e the first instance and called by the second instance
 /// to cause the first instance to activate itself.
 /// </summary>
-internal class SingleInstanceRemoteService : MarshalByRefObject, IDisposable
+internal class SingleInstanceRemoteService : SingleInstanceService
 {
     /// <summary>
     /// Remote service name.
@@ -37,7 +35,6 @@ internal class SingleInstanceRemoteService : MarshalByRefObject, IDisposable
     /// </summary>
     private const string Delimiter = ":";
 
-    private bool isDisposed = false;
     private IpcServerChannel channel;
 
     /// <summary>
@@ -67,13 +64,6 @@ internal class SingleInstanceRemoteService : MarshalByRefObject, IDisposable
         RemotingServices.Marshal(this, RemoteServiceName);
     }
 
-    // TODO: override a finalizer only if Dispose(bool disposing) above has code to free unmanaged resources.
-    ~SingleInstanceRemoteService()
-    {
-        // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
-        Dispose(false);
-    }
-
     /// <summary>
     /// Creates a client channel and obtains a reference to the remoting service exposed by the server -
     /// in this case, the remoting service exposed by the first instance. Calls a function of the remoting service
@@ -83,7 +73,7 @@ internal class SingleInstanceRemoteService : MarshalByRefObject, IDisposable
     /// <param name="args">
     /// Command line arguments for the second instance, passed to the first instance to take appropriate action.
     /// </param>
-    public static void SignalFirstInstance(string appId, string[] args)
+    public new static void SignalFirstInstance(string appId, string[] args)
     {
         var secondInstanceChannel = new IpcClientChannel();
         ChannelServices.RegisterChannel(secondInstanceChannel, true);
@@ -103,48 +93,12 @@ internal class SingleInstanceRemoteService : MarshalByRefObject, IDisposable
         }
     }
 
-    /// <summary>
-    /// Remoting Object's ease expires after every 5 minutes by default. We need to override the InitializeLifetimeService class
-    /// to ensure that lease never expires.
-    /// </summary>
-    /// <returns>Always null.</returns>
-    public override object InitializeLifetimeService()
+    protected override void DisposeUnmanaged()
     {
-        return null!;
-    }
-
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Activates the first instance of the application.
-    /// </summary>
-    public void InvokeFirstInstance(string[] args)
-    {
-        // Do an asynchronous call to ActivateFirstInstance function
-        Application.Current?.Dispatcher.BeginInvoke(DispatcherPriority.Normal, 
-            new DispatcherOperationCallback(ActivateFirstInstanceCallback), args);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (!this.isDisposed)
+        if (this.channel != null)
         {
-            if (disposing)
-            {
-                // TODO: dispose managed state (managed objects).
-            }
-
-            if (this.channel != null)
-            {
-                ChannelServices.UnregisterChannel(this.channel);
-                this.channel = null!;
-            }
-
-            this.isDisposed = true;
+            ChannelServices.UnregisterChannel(this.channel);
+            this.channel = null!;
         }
     }
 
@@ -156,34 +110,6 @@ internal class SingleInstanceRemoteService : MarshalByRefObject, IDisposable
     private static string GetChannelName(string appId)
     {
         return String.Concat(appId, Delimiter, ChannelNameSuffix);
-    }
-
-    /// <summary>
-    /// Callback for activating first instance of the application.
-    /// </summary>
-    /// <param name="arg">Callback argument.</param>
-    /// <returns>Always null.</returns>
-    private static object ActivateFirstInstanceCallback(object arg)
-    {
-        // Get command line args to be passed to first instance
-        var args = (string[])arg;
-        ActivateFirstInstance(args);
-        return null!;
-    }
-
-    /// <summary>
-    /// Activates the first instance of the application with arguments from a second instance.
-    /// </summary>
-    /// <param name="args">List of arguments to supply the first instance of the application.</param>
-    private static void ActivateFirstInstance(string[] args)
-    {
-        // Set main window state and process command line args
-        if (Application.Current == null)
-        {
-            return;
-        }
-
-        (Application.Current as InstanceAwareApp)?.NotifyInstantiated(args);
     }
 }
 

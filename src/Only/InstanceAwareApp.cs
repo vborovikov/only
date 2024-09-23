@@ -17,7 +17,7 @@ public class InstanceAwareApp : Application, IDisposable
     private bool isDisposed = false; // To detect redundant calls
 
     private Mutex? singleInstanceMutex;
-    private SingleInstanceRemoteService? singleInstanceRemoteService;
+    private SingleInstanceService? singleInstanceRemoteService;
 
     /// <summary>
     /// Disposes managed and unmanaged resources.
@@ -40,13 +40,13 @@ public class InstanceAwareApp : Application, IDisposable
         this.singleInstanceMutex = new Mutex(true, applicationIdentifier, out var firstInstance);
         if (firstInstance)
         {
-            this.singleInstanceRemoteService = new SingleInstanceRemoteService(applicationIdentifier);
+            this.singleInstanceRemoteService = SingleInstanceService.Create(applicationIdentifier);
             return Run(window);
         }
         else
         {
             var commandLineArgs = GetCommandLineArgs();
-            SingleInstanceRemoteService.SignalFirstInstance(applicationIdentifier, commandLineArgs);
+            SingleInstanceService.SignalFirstInstance(applicationIdentifier, commandLineArgs);
             return 0;
         }
     }

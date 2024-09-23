@@ -2,13 +2,9 @@
 
 namespace Only;
 
-internal class SingleInstanceRemoteService : IDisposable
+internal class SingleInstanceRemoteService : SingleInstanceService
 {
     public SingleInstanceRemoteService(string appId)
-    {
-    }
-
-    public void Dispose()
     {
     }
 
@@ -21,7 +17,7 @@ internal class SingleInstanceRemoteService : IDisposable
     /// <param name="args">
     /// Command line arguments for the second instance, passed to the first instance to take appropriate action.
     /// </param>
-    public static void SignalFirstInstance(string appId, string[] args)
+    public new static void SignalFirstInstance(string appId, string[] args)
     {
     }
 }
