@@ -172,7 +172,7 @@ public class InstanceAwareApp : Application, IDisposable
         {
             // The application was not ClickOnce deployed, get arguments from standard APIs
             // Skip the executable file name
-            args = Environment.GetCommandLineArgs()[..1];
+            args = Environment.GetCommandLineArgs()[1..];
         }
 #endif
 
